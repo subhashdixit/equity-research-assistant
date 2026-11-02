@@ -171,3 +171,6 @@ __pycache__/
 
 !site/
 !site/**
+
+# Install dependencies locally with npm ci; never commit node_modules.
+node_modules/

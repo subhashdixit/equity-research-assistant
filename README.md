@@ -1,5 +1,8 @@
 # Equity Research Assistant
 
+**Reproducible versions:** [Dependency versions and exact setup](DEPENDENCIES.md).
+
+
 [Open the application](https://subhashdixit.github.io/equity-research-assistant/) · [Report an issue](https://github.com/subhashdixit/equity-research-assistant/issues)
 
 Search imported financial documents with source excerpts and optional evidence-grounded AI answers.
