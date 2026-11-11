@@ -1,63 +1,105 @@
 # Equity Research Assistant
 
-**Reproducible versions:** [Dependency versions and exact setup](DEPENDENCIES.md).
+## 1. Project overview
 
+Search imported financial documents for relevant excerpts and optionally generate an answer from those excerpts with a model running in the browser.
 
-[Open the application](https://subhashdixit.github.io/equity-research-assistant/) · [Report an issue](https://github.com/subhashdixit/equity-research-assistant/issues)
+[Live demo](https://subhashdixit.github.io/equity-research-assistant/) · [Source repository](https://github.com/subhashdixit/equity-research-assistant)
 
-Search imported financial documents with source excerpts and optional evidence-grounded AI answers.
+![Equity Research Assistant main screen](docs/images/application.png)
 
-## What the finished application does
+## 2. Motivation and problem statement
 
-- A complete HTML/JavaScript workflow with included example, file import, editable outputs and local export.
-- Local evidence/extraction mode with explicit algorithm labels.
-- Keyless local open-model generation with explicit downloads, progress and cancellation.
-- Input size limits, provider errors and source/citation checks shown in the UI.
+Searching a long filing for an answer can surface disconnected terms without showing the relevant passage. Generated summaries add a second problem when their claims are hard to trace. This assistant ranks excerpts, preserves source references, and gives reviewers a way to inspect the evidence behind an optional generated answer.
 
-## Use the application step by step
+## 3. Solution and scope
 
-1. Open the live application. Read the input labels and scope panel.
-2. Start with the included example to understand the output.
-3. Replace it with your own supported input. Files are processed locally unless you explicitly choose a server feature and consent to it.
-4. Run the analysis and inspect the visual output together with its limitations.
-5. Export your results when the tool offers a download. Keep your own copy; a browser tab is not a durable data store.
+Import supported text or PDF, ask a question, and inspect ranked source excerpts. Optional local generation uses the retrieved evidence. A fixed-source news reader can fetch public feeds through a separate gateway. The output is research support for reading documents.
 
-## Concepts, algorithms and interpretation
+## 4. Quick start and usage
 
-### Retrieval and generation have different jobs
+1. Open the demo and start with the provided material, paste text, or import a supported text-layer PDF.
+2. Ask a question and run the local tool to retrieve excerpts.
+3. Inspect their source IDs and wording. Optionally start local generation and compare its claims and references with the excerpts.
+4. Edit or download the reviewed result.
 
-Local BM25 ranks source excerpts using query-term rarity and document-length normalization (k1=1.2, b=0.75). It returns exact evidence and scores; a high lexical score is not an answer-confidence probability. An empty match means no evidence found. It cannot understand all paraphrases or resolve contradictory facts. Generation asks a downloaded open model to write an answer from supplied evidence in the browser; tool-specific instructions, no external execution tools and bounded output keep the workflow inspectable. An LLM may still hallucinate or follow malicious text, so source checking remains essential.
-
-### Extraction and preprocessing
-
-PDF.js reads selectable text page by page and preserves page markers. Scans have no guaranteed text layer. The local summarizer scores sentences by term frequency, normalized for length, and restores their original order. It copies source sentences rather than inventing an abstractive summary; it can miss rare but important details. OCR estimates characters from pixels and can misread punctuation, amounts and handwriting. Local invoice parsing is heuristic: missing fields remain null; subtotal + tax is compared with total, but discounts, shipping or multiple tax lines may require correction. Passing arithmetic does not authenticate an invoice.
-
-### Free open models: no key required
-
-Generation runs in a browser Web Worker with Transformers.js 4.3.2 (version-pinned official npm distribution via jsDelivr) and vendored ONNX Runtime Web WASM assets. The public library download is a network dependency; it receives routine connection metadata, not prompts. Text choices are [SmolLM2-135M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct) (~137 MB q8 weights) and [Qwen2.5-0.5B-Instruct ONNX](https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct) (~512 MB). Image tools also offer [SmolVLM-256M-Instruct](https://huggingface.co/HuggingFaceTB/SmolVLM-256M-Instruct) (~260 MB across three q8 components). Model revisions are pinned in `site/model-policy.js`; these models are Apache-2.0 licensed. Read each model card's limitations.
-
-The first run downloads public weights/tokenizers from Hugging Face plus the same-origin WASM runtime. It requires network bandwidth, browser storage and sufficient RAM; memory use exceeds file size. Later runs may reuse browser cache. No API account/key, paid inference subscription or hosted model server is required. Browser cache eviction or model-host availability can require a fresh download. No perpetual hosting guarantee is implied.
-
-Prompts and images stay in this browser's worker. There is no model-inference API request. The user explicitly starts the model download, progress is shown, and Stop terminates the worker. CPU/WASM uses one thread to work without Pages cross-origin-isolation headers. Model generation is limited to 3,500 evidence characters, 600 question characters, 1,800 input tokens and 160 new tokens; longer inputs must be shortened explicitly, rather than silently treated as fully read. Vision inputs are resized proportionally to a maximum 512-pixel edge. Detailed invoice OCR is better served by the separate local OCR/field-validation path.
-
-These are small experimental models. Generated text can be repetitive, incomplete, unsupported or inconsistent with evidence. Citations are checked for known IDs, not factual entailment. Never infer that a generated number is correct because it looks plausible. The deterministic extractive/retrieval modes remain the more traceable option. Images are analyzed, not generated.
-
-## Architecture and data flow
+## 5. High-level architecture
 
 ```mermaid
 flowchart LR
-  Document[Local text / PDF / image] --> Extract[Local extraction / OCR / retrieval]
-  Weights[Public pinned open-model files] --> Worker[Local WASM model worker]
-  Extract --> Worker
-  Extract --> Review[Editable source-based result]
-  Worker --> Review
-  Review --> Export[Local export]
-  CI[Tests + lint + format] --> Pages[Publish site on GitHub Pages]
+    A["Local document and question"] --> B["Browser retrieval"] --> C["Optional local model"] --> D["Cited review"]
 ```
 
-The Render gateway is used only by the research workbench's fixed-source news reader in the default setup. Its legacy optional Gemini adapter remains available in source for comparison, but the seven interfaces do not need it or call it for generation. No Gemini key setup is required. Qwen is the default text option; the smaller SmolLM2 option is a lower-memory experiment with substantially weaker instruction following. Generated numbers not found in evidence are flagged conservatively; this check is not mathematical or factual verification. A sleeping news gateway can delay feed retrieval; local document/model tools remain independent.
+## 6. End-to-end request workflow
 
-## Run locally from scratch
+```mermaid
+sequenceDiagram
+    actor Visitor
+    participant UI as Application
+    participant Logic as Processing layer
+    Visitor->>UI: Import document and ask question
+    UI->>Logic: Extract text and rank relevant passages
+    alt Valid input
+        Logic-->>UI: Source excerpts and optional answer
+        UI-->>Visitor: Render or export the result
+    else Invalid input
+        Logic-->>UI: Input error
+        UI-->>Visitor: Show actionable feedback
+    end
+```
+
+## 7. Data sources, inputs, and outputs
+
+Supported inputs include pasted text, TXT, Markdown, or text-layer PDF and a text question. The included material is a historical or illustrative starting point. The output contains ranked source excerpts, an optional generated answer, and editable text for download. The separate news reader requests fixed public feeds.
+
+## 8. Data flow and ETL pipeline
+
+```mermaid
+flowchart LR
+    A["Read document"] --> B["Preserve page or source markers"] --> C["Chunk and tokenize"] --> D["Rank passages with BM25"] --> E["Send bounded evidence to review or local generation"]
+```
+
+## 9. Low-level design and interfaces
+
+```mermaid
+flowchart LR
+    A["app.js: workflow and state"] --> B["documents.js: file extraction"] --> C["engine.js: evidence ranking"] --> D["local-model-worker.js: optional generation"]
+```
+
+`local-model-worker.js` loads the model selected in `model-policy.js` only when the user starts local generation. The interface provides progress, cancellation, and validation feedback.
+
+## 10. Concepts and algorithms
+
+| Concept | How and why it is used |
+| --- | --- |
+| Chunking | Split long material into passages with source IDs so users can inspect the text that supports an answer. |
+| BM25 | Rank excerpts using term rarity, term frequency, and length normalization. Lexical scores can miss paraphrases and do not measure answer confidence. |
+| Retrieval-augmented generation | Pass bounded retrieved excerpts to the optional local model. Inspecting those excerpts makes unsupported claims easier to catch. |
+| Citation checking | Check references against known source IDs. A valid ID alone does not establish that the source supports the claim. |
+| Quantized local inference | Smaller model weights reduce download and memory requirements. Limited models can still omit details or generate unsupported facts. |
+
+## 11. Technology choices and dependencies
+
+| Technology | Role and rationale |
+| --- | --- |
+| PDF.js | Extract selectable text from supported PDFs while preserving page references. |
+| JavaScript and BM25 | Run deterministic evidence ranking locally without a hosted index. |
+| Transformers.js and ONNX Runtime Web | Run optional Qwen2.5 or SmolLM2 inference in a browser worker. |
+| GitHub Pages and Render | Serve the static app and, separately, fetch supported public news feeds. |
+
+[Dependency versions and reproducible setup](DEPENDENCIES.md)
+
+[Model revisions and limits](site/model-policy.js) · [Vendored notices and versions](site/vendor/)
+
+## 12. Training, inference, and evaluation
+
+The project uses deterministic retrieval and pretrained generation models. It does not report a held-out relevance, answer-faithfulness, or investment-performance benchmark. Tests cover the engine, assets, and local model policy. Check source coverage and unsupported claims before reusing generated text. Run `npm test`. [Test sources](tests/)
+
+## 13. Limitations and data handling
+
+Complex PDFs can change extraction order, and scans may lack a text layer. Input size and evidence budgets limit how much content a model sees. The first model run downloads public weights. Imported documents and prompts are processed locally by the browser paths. The optional news path sends a fixed-feed request to the gateway. This is a research aid and should not be used as investment advice.
+
+## 14. Installation and local setup
 
 Install Node.js 22 and Python 3 for a local static HTTP server. Python is not a production backend for this app.
 
@@ -74,7 +116,7 @@ python3 -m http.server 8000 --directory site
 
 Open http://localhost:8000. Use HTTP rather than double-clicking HTML so that module imports and local data fetches work consistently. No production API secret belongs in `site/`.
 
-## Coding structure
+## 15. Repository structure
 
 ```text
 site/
@@ -90,7 +132,12 @@ archive/           # original README and retired workflows where present
 
 Original source files, notebooks and historical artifacts remain in the repository for comparison. The release publishes only `site/`; old source directories and datasets are not automatically exposed by the application.
 
-## CI/CD and deployment
+## 16. Deployment and operations
+
+```mermaid
+flowchart LR
+    A["GitHub main"] --> B["GitHub Actions checks"] --> C["Publish site directory"] --> D["GitHub Pages"]
+```
 
 CI means continuous integration: each pull request and main-branch push installs exact lockfile dependencies, checks formatting, lints JavaScript, runs meaningful behavior tests and checks module syntax. A failed check stops publishing. CD means continuous deployment: after the required `Build and test` check succeeds on `main`, GitHub Actions uploads `site/` and GitHub Pages serves it over HTTPS.
 
@@ -106,16 +153,12 @@ A commit identifies exactly which source was deployed. Inspect the Actions deplo
 
 Docker packages code and dependencies into a reproducible runtime. This static app does not require a container: Pages serves the same versioned files directly, with less operating work and no container cold starts. A container becomes useful if adding a Python backend; then secrets, patches, resource costs and persistent storage require separate management.
 
-## Data provenance and attribution
+The news gateway can cold-start. Local document tools can still run independently.
 
-Original source files are retained. Default analytical examples and the default invoice/profile are fictional. PDF.js 6.4.299 is Apache-2.0 licensed; its license is vendored with the worker. 
+## 17. License, credits, and support
 
-## Practical limits
+Project by **Subhash Dixit**. See the [repository license](LICENSE) for code terms. Report bugs or documentation issues with synthetic reproduction inputs.
 
-Text/context ≤40,000 characters; local generation questions ≤600; local documents ≤5 MiB/60 pages; images ≤2 MiB/16 megapixels. Only PNG/JPEG for image analysis. No persistent document store or cross-device history. Source extraction can change reading order in complex PDFs. OCR and AI output require manual verification. Images are analyzed, not generated. No API key is needed for any default generation function.
+[GitHub Issues](https://github.com/subhashdixit/equity-research-assistant/issues)
 
-The test suite checks calculation contracts and invalid inputs. It cannot establish that an input dataset is representative, that a heuristic is scientifically correct for every domain, or that a result is suitable for an automated consequential decision. Read the original source alongside the maintained browser implementation when comparing behavior.
-
-## Local dependency installation
-
-The maintained app is HTML/CSS/JavaScript and needs no Python packages. `requirements.txt` documents this; install development tools with `npm ci` using the pinned Node/npm versions. See [DEPENDENCIES.md](DEPENDENCIES.md). Original prototype requirements are preserved at `archive/prototype-requirements.in` where present; they are not the supported install command.
+Third-party runtime and model notices are linked from the dependency documentation.
