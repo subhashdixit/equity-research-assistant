@@ -2,7 +2,7 @@
 
 ## 1. Project overview
 
-Search imported financial documents for relevant excerpts and optionally generate an answer from those excerpts with a model running in the browser.
+Find evidence in financial documents and optionally generate an answer grounded in retrieved excerpts. The repository combines local document reading, passage ranking, and browser-based generation with source references.
 
 [Live demo](https://subhashdixit.github.io/equity-research-assistant/) · [Source repository](https://github.com/subhashdixit/equity-research-assistant)
 
@@ -10,7 +10,17 @@ Search imported financial documents for relevant excerpts and optionally generat
 
 ## 2. Motivation and problem statement
 
-Searching a long filing for an answer can surface disconnected terms without showing the relevant passage. Generated summaries add a second problem when their claims are hard to trace. This assistant ranks excerpts, preserves source references, and gives reviewers a way to inspect the evidence behind an optional generated answer.
+### Objective
+
+Help a researcher find source passages that address a financial question and use those passages to check an optional generated answer.
+
+### Problem statement
+
+Given a supported document and a question, identify relevant excerpts within long or unevenly structured material. A result should show which passages it used so a reader can verify figures and claims in context.
+
+### Motivation
+
+Searching filings or research notes manually takes time, and a generated summary can make claims that are hard to trace. This project keeps excerpts available alongside the answer, with deterministic retrieval for users who only need the evidence. Its separate news reader can bring in supported public feeds.
 
 ## 3. Solution and scope
 
